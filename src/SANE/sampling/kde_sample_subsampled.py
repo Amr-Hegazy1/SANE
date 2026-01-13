@@ -5,7 +5,7 @@ from SANE.models.def_NN_experiment import NNmodule
 
 import torch
 
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Union
 
 import numpy as np
 

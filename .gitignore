@@ -171,7 +171,7 @@ error.*
 latest-run
 /tune
 
-/experiments
+sane_pretraining
 # checkpoints
 *.pt
 *.json

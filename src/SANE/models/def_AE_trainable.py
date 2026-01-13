@@ -299,7 +299,7 @@ class AE_trainable(Trainable):
             # init dataloaders
             logging.info("Load Data")
             # load dataset from file
-            dataset = torch.load(self.config["dataset::dump"])
+            dataset = torch.load(self.config["dataset::dump"], weights_only=False)
 
             trainset = dataset["trainset"]
             testset = dataset["testset"]

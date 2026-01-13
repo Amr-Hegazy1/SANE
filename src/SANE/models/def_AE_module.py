@@ -272,7 +272,7 @@ class AEModule(nn.Module):
                 final_div_factor=10000.0,
                 three_phase=False,
                 last_epoch=-1,
-                verbose=False,
+                # verbose=False,
             )
 
     def save_model(self, experiment_dir):

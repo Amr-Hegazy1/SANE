@@ -33,7 +33,7 @@ class CheckpointSamplingCallback(Callback):
         bn_condition_iters: int = 0,
         ensemble: bool = False,
         anchor_sample_number: int = 0,
-        drop_samples_to_path: Optional[str | Path] = None,
+        drop_samples_to_path: Optional[Union[str, Path]] = None,
     ):
         """
         Args:

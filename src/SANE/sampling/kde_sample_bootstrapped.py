@@ -57,7 +57,7 @@ def sample_model_evaluation_bootstrapped(
     sigma_glob: float = 10.0,
     ensemble: bool = False,
     anchor_sample_number: int = 0,
-    drop_samples_to_path: Optional[str | Path] = None,
+    drop_samples_to_path: Optional[Union[str, Path]] = None,
 ) -> dict:
     """
     runs evaluation pipeline.

@@ -77,7 +77,7 @@ def main():
     config["ae:i_dim"] = 288
     config["ae:lat_dim"] = 128
     config["ae:max_positions"] = [55000, 100, 550]
-    config["training::windowsize"] = 64
+    config["training::windowsize"] = 256
     config["ae:d_model"] = 2048
     config["ae:nhead"] = 16
     config["ae:num_layers"] = 8

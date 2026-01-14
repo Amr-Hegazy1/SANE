@@ -66,27 +66,56 @@ def prepare_multiple_datasets(configurations: List[Dict[str, Any]]):
             permutations_per_sample_test=config.get("permutations_per_sample_test", 0),
             page_size=config.get("page_size", 4 * 1 << 21),
             drop_pt_dataset=config.get("drop_pt_dataset", False),
+            skip_existing_samples=config.get("skip_existing_samples", False),
         )
 
+def _torch_sample_path(output_dir: Union[str, Path], index: int) -> str:
+    return os.path.join(str(output_dir), f"sample_{index}.pt")
+
+
 # Save function using torch
-def save_torch_sample(index, ddx, mask, pos, props, output_dir):
-    file_path = os.path.join(output_dir, f"sample_{index}.pt")
+def save_torch_sample(index, ddx, mask, pos, props, output_dir, *, skip_existing: bool = False):
+    file_path = _torch_sample_path(output_dir, index)
+    if skip_existing and os.path.exists(file_path):
+        return False
     torch.save({"w": ddx, "m": mask, "p": pos, "props": props}, file_path)
+    return True
 
 
-def save_dataset(dataset, output_dir):
-    # Create a DataLoader
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+def save_dataset(dataset, output_dir, *, skip_existing: bool = False):
+    """Persist dataset samples as individual torch files.
 
-    # Ensure output directory exists
+    If skip_existing=True, existing sample_{idx}.pt files are left untouched and
+    the corresponding dataset elements are not re-materialized.
+    """
     os.makedirs(output_dir, exist_ok=True)
 
-    for index, (ddx, mask, pos, props) in enumerate(dataloader):
-        # remove batch dimension 
-        ddx, mask, pos, props = ddx.squeeze(0), mask.squeeze(0), pos.squeeze(0), props.squeeze(0)
-        save_torch_sample(index, ddx, mask, pos, props, output_dir)
+    num_total = len(dataset)
+    num_written = 0
+    num_skipped = 0
 
-    logging.info(f"All samples have been saved to {output_dir}")
+    for index in range(num_total):
+        file_path = _torch_sample_path(output_dir, index)
+        if skip_existing and os.path.exists(file_path):
+            num_skipped += 1
+            continue
+
+        ddx, mask, pos, props = dataset[index]
+        wrote = save_torch_sample(
+            index,
+            ddx,
+            mask,
+            pos,
+            props,
+            output_dir,
+            skip_existing=skip_existing,
+        )
+        if wrote:
+            num_written += 1
+
+    logging.info(
+        f"Samples saved to {output_dir} (written={num_written}, skipped={num_skipped}, total={num_total})"
+    )
 
 def prepare_dataset(
     dataset_target_path: Union[str, Path],
@@ -121,6 +150,7 @@ def prepare_dataset(
     permutations_per_sample_test: int = 0,
     page_size: int = 4 * 1 << 21,
     drop_pt_dataset: bool = False,
+    skip_existing_samples: bool = False,
 ):
     """
     Prepares an ffcv dataset from token_dataset.
@@ -189,6 +219,7 @@ def prepare_dataset(
             tokensize=tokensize,
             page_size=page_size,
             drop_pt_dataset=drop_pt_dataset,
+            skip_existing_samples=skip_existing_samples,
         )
 
 
@@ -223,6 +254,7 @@ def preprocess_single_split(
     tokensize: int = 576,
     page_size: int = 4 * 1 << 21,
     drop_pt_dataset: bool = False,
+    skip_existing_samples: bool = False,
 ):
     """
     Loads a single split of the token dataset and writes to ffcv.
@@ -277,8 +309,8 @@ def preprocess_single_split(
         precision=precision,
         filter_function=filter_fn,  # gets sample path as argument and returns True if model needs to be filtered out
         property_keys=property_keys,
-        num_threads=12,
-        shuffle_path=True,
+        num_threads=num_threads,
+        shuffle_path=shuffle_path,
         verbosity=3,
         mode="checkpoint",  # apply permutation on checkpoint
         getitem="tokens+props",
@@ -334,7 +366,7 @@ def preprocess_single_split(
     write_path = Path(dataset_target_path).joinpath(f"dataset_torch.{split}")
     logging.info(f"write_path: {write_path}")
 
-    save_dataset(dataset, write_path)
+    save_dataset(dataset, write_path, skip_existing=skip_existing_samples)
 
     # get metadata and write to disk
     # get full sample and infer dimensions

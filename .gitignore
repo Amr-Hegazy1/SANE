@@ -175,3 +175,8 @@ sane_pretraining
 # checkpoints
 *.pt
 *.json
+
+
+# Slurm files
+output_*.txt
+error_*.txt

@@ -79,7 +79,7 @@ def prep_data():
         "testset": ds_test,
     }
 
-    torch.save(dataset, dataset_target_path + "dataset.pt")
+    torch.save(dataset, dataset_target_path[0].joinpath("dataset.pt"))
 
 
 def create_configurations(zoo_path_and_permutation_spec_and_target_path, filter_fn=None):
@@ -91,7 +91,9 @@ def create_configurations(zoo_path_and_permutation_spec_and_target_path, filter_
     max_samples = 200
     weight_threshold = float("inf")
     num_threads = 5
-    shuffle_path = True
+    # NOTE: set to False for deterministic ordering, which is important when resuming
+    # partial sample_*.pt dumps.
+    shuffle_path = False
     windowsize = 2048
     supersample = 50
     precision = "32"
@@ -147,6 +149,8 @@ def create_configurations(zoo_path_and_permutation_spec_and_target_path, filter_
                     "property_keys": property_keys,
                     "drop_pt_dataset": False,
                     "filter_fn": filter_fn,
+                    # If the job times out, rerunning will only generate missing sample_*.pt files.
+                    "skip_existing_samples": True,
                 }
             )
     

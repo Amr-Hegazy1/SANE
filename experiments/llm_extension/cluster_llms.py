@@ -72,12 +72,12 @@ def main():
     with open(config_path, 'r') as f:
         config = json.load(f)
     
-    config['device'] = 'cpu'
-    config['gpu_id'] = -1
+    config['device'] = 'cuda'
+    config['gpu_id'] = 0
     config['training::steps_per_epoch'] = 100 
     
     model = AEModule(config)
-    state = torch.load(checkpoint_path, map_location='cpu')
+    state = torch.load(checkpoint_path, map_location='cuda')
     model.model.load_state_dict(state['model'])
     model.eval()
     
@@ -103,13 +103,17 @@ def main():
     with torch.no_grad():
         for batch_idx, (w, mask, pos, props) in enumerate(dataloader):
             # Forward Encoder
+            w = w.to('cuda')
+            mask = mask.to('cuda')
+            pos = pos.to('cuda')
+            
             z = model.forward_encoder(w, pos)
             
             # Pool: [Batch, Seq, Latent] -> [Batch, Latent]
             # This condenses the whole layer into one vector
             z_pooled = get_masked_mean_embedding(z, mask)
             
-            embeddings.append(z_pooled.numpy())
+            embeddings.append(z_pooled.cpu().numpy())
             
             # Metadata extraction relies on index mapping
             # Since shuffle=False, we can map batch indices back to dataset.data

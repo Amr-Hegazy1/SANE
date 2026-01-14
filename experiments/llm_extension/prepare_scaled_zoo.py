@@ -15,12 +15,20 @@ TRAIN_ZOO = [
     "Qwen/Qwen1.5-0.5B", # Small Qwen
     # Uncomment if you have RAM (requires ~15GB system RAM per model load)
     # "openlm-research/open_llama_3b_v2", 
+    "mistralai/Mistral-7B-v0.1",
+    "mistralai/Mistral-Small-24B-Base-2501",
+    "01-ai/Yi-9B",
+    "mistralai/Mistral-Nemo-Base-2407",
+    "HuggingFaceTB/SmolLM3-3B",
+    ""
 ]
 
 # Models to Test on (The "Unseen" World - Different architectures)
 HOLDOUT_ZOO = [
     "google/gemma-2b", # Different architecture details
     "Qwen/Qwen1.5-1.8B", # Same family, different scale
+    "google/gemma-3-12b-pt",
+    "openai/gpt-oss-20b"
 ]
 
 # Mapping different key names to a standard (Gate, Up, Down) tuple
@@ -33,6 +41,8 @@ KEY_MAPPINGS = {
     "Qwen2ForCausalLM": ("gate_proj", "up_proj", "down_proj"), # Qwen1.5 uses standard names in HF
     "GemmaForCausalLM": ("gate_proj", "up_proj", "down_proj"),
     "Gemma2ForCausalLM": ("gate_proj", "up_proj", "down_proj"),
+    "YiForCausalLM": ("gate_proj", "up_proj", "down_proj"),
+    "SmolLMForCausalLM": ("gate_proj", "up_proj", "down_proj"),
 }
 
 def get_max_hidden_size(model_list):

@@ -32,8 +32,8 @@ def main():
     TOKEN_DIM = meta['token_dim']
     # Approximate max sequence length (Intermediate size usually ~2.7x hidden)
     # Qwen 1.8B Inter is ~5500. Let's be safe.
-    SEQ_LEN = 16384 
-    NUM_LAYERS = 64 # Max layers in likely models (Llama-70B has 80, 7B has 32)
+    SEQ_LEN = 65536   # Safe upper bound for intermediate_size (neurons)
+    NUM_LAYERS = 256  # Safe upper bound for layer count (Llama-3-405B has 126 layers)
 
     print(f"Auto-Configuring SANE for Token Dim: {TOKEN_DIM}")
 

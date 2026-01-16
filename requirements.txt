@@ -25,3 +25,4 @@ ray
 "ray[default]"
 pydantic
 einops
+tensorboardx

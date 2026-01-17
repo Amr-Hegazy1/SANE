@@ -146,8 +146,8 @@ def load_state_dict_efficiently(model_name):
     model = AutoModelForCausalLM.from_pretrained(
         model_name, 
         torch_dtype=torch.float16,  # Use fp16 to save memory
-        device_map="cpu",
-        low_cpu_mem_usage=True  # Enable low memory mode
+        device_map="auto",
+        low_cpu_mem_usage=True,  # Enable low memory mode
     )
     state_dict = model.state_dict()
     del model
@@ -213,7 +213,7 @@ def process_layer(w_gate, w_up, w_down, curr_hidden, max_hidden_dim, layer_id):
     
     return sample
 
-def process_model_zoo(model_list, max_hidden_dim, zoo_name, output_dir, batch_save_size=50):
+def process_model_zoo(model_list, max_hidden_dim, zoo_name, output_dir, batch_save_size=1):
     """
     Process models and save samples in batches to avoid memory buildup.
     """

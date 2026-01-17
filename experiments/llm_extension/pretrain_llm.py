@@ -1,5 +1,4 @@
 import logging
-import os
 import sys
 from pathlib import Path
 import torch
@@ -11,8 +10,7 @@ from ray import tune
 sys.path.append(str(Path(__file__).parent.parent.parent)) 
 sys.path.append(str(Path(__file__).parent)) 
 
-from SANE.models.def_AE_trainable import AE_trainable
-from llm_dataset import LLMLayerDataset 
+from llm_trainable import LLM_AE_trainable
 
 logging.basicConfig(level=logging.INFO)
 
@@ -54,6 +52,8 @@ def main():
     config["training::permutation_number"] = 0
     config["trainset::add_noise_view_1"] = 0.05
     config["trainset::add_noise_view_2"] = 0.05
+    # LLM-specific loader settings
+    config["llm::bucket_size"] = 1024
     
     config["optim::optimizer"] = "adamw"
     config["optim::lr"] = 1e-4
@@ -81,7 +81,7 @@ def main():
     # FIXED: Use ray.air.CheckpointConfig
     experiment = tune.Experiment(
         name=experiment_name,
-        run=AE_trainable,
+        run=LLM_AE_trainable,
         stop={"training_iteration": config["training::epochs_train"]},
         config=config,
         local_dir=output_dir,

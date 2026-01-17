@@ -12,8 +12,7 @@ from ray import tune
 sys.path.append(str(Path(__file__).parent.parent.parent)) 
 sys.path.append(str(Path(__file__).parent)) 
 
-from SANE.models.def_AE_trainable import AE_trainable
-from llm_dataset import LLMLayerDataset 
+from llm_trainable import LLM_AE_trainable
 
 logging.basicConfig(level=logging.INFO)
 
@@ -65,6 +64,8 @@ def main():
     
     config["training::windowsize"] = 128 
     config["training::permutation_number"] = 0
+    # LLM-specific loader settings
+    config["llm::bucket_size"] = 4096
     
     config["optim::optimizer"] = "adamw"
     config["optim::lr"] = 1e-4
@@ -88,7 +89,7 @@ def main():
     
     experiment = tune.Experiment(
         name=experiment_name,
-        run=AE_trainable,
+        run=LLM_AE_trainable,
         stop={"training_iteration": config["training::epochs_train"]},
         config=config,
         local_dir=str(output_dir),

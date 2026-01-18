@@ -1,9 +1,17 @@
 import logging
 
+import sys
+from pathlib import Path
+
 import torch
 
 from SANE.models.def_AE_trainable import AE_trainable
 from llm_data_utils import build_llm_dataloaders
+
+
+# Ensure imports work on Ray workers even if cwd differs
+sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 
 class LLM_AE_trainable(AE_trainable):
@@ -18,6 +26,7 @@ class LLM_AE_trainable(AE_trainable):
             batch_size = self.config["trainset::batchsize"]
             bucket_size = self.config.get("llm::bucket_size", None)
             num_workers = self.config.get("trainloader::workers", 2)
+            enable_downstream = bool(self.config.get("llm::enable_downstream", False))
 
             logging.info("Load LLM dataset with bucketed sampling and windowing")
             dataset = torch.load(self.config["dataset::dump"], weights_only=False)
@@ -36,6 +45,7 @@ class LLM_AE_trainable(AE_trainable):
                 bucket_size=bucket_size,
                 num_workers=num_workers,
                 drop_last=True,
+                enable_downstream=enable_downstream,
             )
 
             return trainset, testset, valset, trainloader, testloader, valloader

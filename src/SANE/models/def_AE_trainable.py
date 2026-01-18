@@ -369,6 +369,11 @@ class AE_trainable(Trainable):
         """
         load downstream task datasets and instanciate downstream task learner
         """
+        # Always initialize to a known value. Some code paths below skip
+        # assignment and later checks expect this attribute to exist.
+        self.dstk = None
+        dataset_info_path = None
+
         if self.config.get("downstreamtask::dataset", None):
             # load datasets
             downstream_dataset_path = self.config.get("downstreamtask::dataset", None)
@@ -423,7 +428,7 @@ class AE_trainable(Trainable):
             self.dstk = None
 
         # load task_keys
-        if self.dstk:
+        if self.dstk and dataset_info_path is not None:
             try:
                 self.dataset_info = json.load(open(dataset_info_path, "r"))
                 self.task_keys = self.dataset_info["properties"]

@@ -66,6 +66,9 @@ def main():
     config["training::permutation_number"] = 0
     # LLM-specific loader settings
     config["llm::bucket_size"] = 4096
+    # Downstream tasks require materializing the full dataset via __get_weights__.
+    # For the scaled zoo this is prohibitively expensive; keep it off by default.
+    config["llm::enable_downstream"] = False
     
     config["optim::optimizer"] = "adamw"
     config["optim::lr"] = 1e-4

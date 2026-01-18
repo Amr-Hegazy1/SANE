@@ -32,10 +32,25 @@ class LLMWindowedDataset(Dataset):
     Ensures windows are sampled only from real (non-padded) tokens.
     """
 
-    def __init__(self, base_dataset: Dataset, windowsize: int):
+    def __init__(self, base_dataset: Dataset, windowsize: int, enable_properties: bool = False):
         self.base_dataset = base_dataset
         self.windowsize = int(windowsize)
-        self.seq_lens = _infer_seq_lens_from_data(base_dataset)
+        # Downstream tasks in core SANE expect `.properties` and can call `__get_weights__`,
+        # which materializes the entire dataset into a single tensor. For large LLM zoos
+        # this is prohibitively expensive, so keep it opt-in.
+        self.base_properties = getattr(base_dataset, "properties", None)
+        self.properties = self.base_properties if enable_properties else None
+        # Avoid expensive full-dataset length inference at startup.
+        # We'll infer the valid (unpadded) seq length from the mask on each __getitem__.
+        self.seq_lens = None
+
+    def __get_weights__(self):
+        """Delegates to the underlying dataset when downstream tasks are enabled."""
+        if self.properties is None:
+            raise AttributeError("__get_weights__ is disabled because downstream properties are disabled")
+        if hasattr(self.base_dataset, "__get_weights__"):
+            return self.base_dataset.__get_weights__()
+        raise AttributeError("Base dataset does not implement __get_weights__")
 
     def __len__(self):
         return len(self.base_dataset)
@@ -43,8 +58,9 @@ class LLMWindowedDataset(Dataset):
     def __getitem__(self, index):
         ddx, mask, pos, props = self.base_dataset[index]
 
-        seq_len = int(self.seq_lens[index])
-        seq_len = min(seq_len, ddx.shape[0])
+        # mask is [seq, dim] (bool) with full rows True for real tokens
+        seq_len = int(mask[:, 0].sum().item()) if mask.numel() > 0 else int(ddx.shape[0])
+        seq_len = min(seq_len, int(ddx.shape[0]))
 
         # Ensure we have at least windowsize tokens to avoid downstream errors
         if ddx.shape[0] < self.windowsize:
@@ -126,6 +142,7 @@ def build_llm_dataloaders(
     bucket_size: Optional[int] = None,
     num_workers: int = 2,
     drop_last: bool = True,
+    enable_downstream: bool = False,
 ):
     """
     Build DataLoaders with bucketed sampling and mask-aware windowing.
@@ -137,13 +154,15 @@ def build_llm_dataloaders(
     testset = dataset_dict["testset"]
     valset = dataset_dict.get("valset", None)
 
-    trainset_w = LLMWindowedDataset(trainset, windowsize=windowsize)
-    testset_w = LLMWindowedDataset(testset, windowsize=windowsize)
-    valset_w = LLMWindowedDataset(valset, windowsize=windowsize) if valset else None
+    trainset_w = LLMWindowedDataset(trainset, windowsize=windowsize, enable_properties=enable_downstream)
+    testset_w = LLMWindowedDataset(testset, windowsize=windowsize, enable_properties=enable_downstream)
+    valset_w = LLMWindowedDataset(valset, windowsize=windowsize, enable_properties=enable_downstream) if valset else None
 
-    train_lengths = _infer_seq_lens_from_data(trainset)
-    test_lengths = _infer_seq_lens_from_data(testset)
-    val_lengths = _infer_seq_lens_from_data(valset) if valset else None
+    # After windowing, all samples have the same effective sequence length (windowsize).
+    # So we can avoid scanning/loading the whole dataset just to infer lengths.
+    train_lengths = [int(windowsize)] * len(trainset)
+    test_lengths = [int(windowsize)] * len(testset)
+    val_lengths = [int(windowsize)] * len(valset) if valset else None
 
     train_sampler = BucketedBatchSampler(
         lengths=train_lengths,
@@ -171,24 +190,27 @@ def build_llm_dataloaders(
         else None
     )
 
+    dl_kwargs = {
+        "num_workers": num_workers,
+    }
+    if int(num_workers) > 0:
+        dl_kwargs["prefetch_factor"] = 4
+
     trainloader = DataLoader(
         trainset_w,
         batch_sampler=train_sampler,
-        num_workers=num_workers,
-        prefetch_factor=4,
+        **dl_kwargs,
     )
     testloader = DataLoader(
         testset_w,
         batch_sampler=test_sampler,
-        num_workers=num_workers,
-        prefetch_factor=4,
+        **dl_kwargs,
     )
     if valset_w is not None:
         valloader = DataLoader(
             valset_w,
             batch_sampler=val_sampler,
-            num_workers=num_workers,
-            prefetch_factor=4,
+            **dl_kwargs,
         )
     else:
         valloader = None

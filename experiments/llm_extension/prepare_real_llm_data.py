@@ -11,7 +11,7 @@ MODEL_ZOO = [
     "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
 ]
 
-def tokenize_llama_mlp_layer(model_state_dict, layer_idx, hidden_size, intermediate_size):
+def tokenize_llama_mlp_layer(model_state_dict, layer_idx, hidden_size, intermediate_size, standardize=True, align_neurons=True):
     prefix = f"model.layers.{layer_idx}.mlp"
     try:
         w_gate = model_state_dict[f"{prefix}.gate_proj.weight"]
@@ -20,8 +20,28 @@ def tokenize_llama_mlp_layer(model_state_dict, layer_idx, hidden_size, intermedi
     except KeyError:
         return None
 
-    w_down_t = w_down.t() 
+    # Standardize per-layer
+    if standardize:
+        w_gate_f = w_gate.float()
+        w_up_f = w_up.float()
+        w_down_f = w_down.float()
+        w_down_t_f = w_down_f.t()
+        all_vals = torch.cat([w_gate_f.flatten(), w_up_f.flatten(), w_down_t_f.flatten()])
+        mean = all_vals.mean()
+        std = all_vals.std().clamp_min(1e-6)
+        w_gate = (w_gate_f - mean) / std
+        w_up = (w_up_f - mean) / std
+        w_down = (w_down_f - mean) / std
+
+    w_down_t = w_down.t()
     tokens = torch.cat([w_gate, w_up, w_down_t], dim=1)
+
+    # Align neuron ordering (simple L2 norm sort)
+    if align_neurons:
+        norms = torch.norm(tokens.float(), p=2, dim=1)
+        order = torch.argsort(norms, descending=True)
+        tokens = tokens.index_select(0, order)
+
     return tokens.detach().cpu()
 
 def main():

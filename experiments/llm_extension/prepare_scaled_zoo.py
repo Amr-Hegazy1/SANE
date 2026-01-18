@@ -231,11 +231,35 @@ def extract_mlp_weights(get_tensor, layer_idx, arch_type):
     except KeyError:
         return None, None, None
 
-def process_layer(w_gate, w_up, w_down, curr_hidden, max_hidden_dim, layer_id, out_dtype=torch.float16):
+def process_layer(
+    w_gate,
+    w_up,
+    w_down,
+    curr_hidden,
+    max_hidden_dim,
+    layer_id,
+    out_dtype=torch.float16,
+    standardize=True,
+    align_neurons=True,
+):
     """
     Process a single layer's weights into a sample.
     Isolated function to enable better garbage collection.
     """
+    # Standardize per-layer (paper preprocessing)
+    if standardize:
+        # Use float32 for stable stats
+        w_gate_f = w_gate.float()
+        w_up_f = w_up.float()
+        w_down_f = w_down.float()
+        w_down_t_f = w_down_f.t()
+        all_vals = torch.cat([w_gate_f.flatten(), w_up_f.flatten(), w_down_t_f.flatten()])
+        mean = all_vals.mean()
+        std = all_vals.std().clamp_min(1e-6)
+        w_gate = (w_gate_f - mean) / std
+        w_up = (w_up_f - mean) / std
+        w_down = (w_down_f - mean) / std
+    # cast to target dtype
     w_gate = w_gate.to(dtype=out_dtype)
     w_up = w_up.to(dtype=out_dtype)
     w_down = w_down.to(dtype=out_dtype)
@@ -252,11 +276,17 @@ def process_layer(w_gate, w_up, w_down, curr_hidden, max_hidden_dim, layer_id, o
     
     # Create Neuron Tokens - Shape: [Inter, Max_Hidden * 3]
     tokens = torch.cat([w_gate, w_up, w_down_t], dim=1)
+
+    # Align neuron ordering (simple canonicalization via L2 norm sort)
+    if align_neurons:
+        norms = torch.norm(tokens.float(), p=2, dim=1)
+        order = torch.argsort(norms, descending=True)
+        tokens = tokens.index_select(0, order)
     
     # Create Metadata
     seq_len = tokens.shape[0]
     
-    # Pos: [Global_Seq, Layer_ID, Neuron_ID]
+    # Pos: [Token_Index, Layer_ID, Neuron_ID]
     pos = torch.zeros((seq_len, 3), dtype=torch.int)
     pos[:, 0] = torch.arange(seq_len)
     pos[:, 1] = layer_id

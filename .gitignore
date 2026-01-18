@@ -176,6 +176,8 @@ sane_pretraining
 *.pt
 *.json
 
+paper/
+
 
 # Slurm files
 output_*.txt

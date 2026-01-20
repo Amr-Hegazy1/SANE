@@ -175,3 +175,5 @@ latest-run
 # checkpoints
 *.pt
 *.json
+paper/
+AGENTS.md

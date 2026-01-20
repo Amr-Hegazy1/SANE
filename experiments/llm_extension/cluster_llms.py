@@ -171,7 +171,7 @@ def main():
 
     # 2. Select a matching SANE checkpoint (by ae:i_dim)
     experiment_dir = Path("/storage/home/amr.hegazy/ray_results/sane_llm_scaled_multiarch")
-    latest_trial = _select_trial_dir(experiment_dir, expected_token_dim or 0)
+    latest_trial = Path("/storage/home/amr.hegazy/ray_results/sane_llm_scaled_multiarch/LLM_AE_trainable_12b15_00000_0_2026-01-19_10-06-00/")
     
     chkpts = sorted(list(latest_trial.glob("checkpoint_*")))
     checkpoint_path = chkpts[-1].joinpath("state.pt")

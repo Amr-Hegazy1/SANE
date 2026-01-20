@@ -87,7 +87,7 @@ def load_latest_trial(experiment_dir: Path):
     trial_dirs = [d for d in experiment_dir.iterdir() if d.is_dir() and d.name.startswith("AE_trainable")]
     if not trial_dirs:
         raise FileNotFoundError(f"No training results found in {experiment_dir}")
-    latest_trial = sorted(trial_dirs, key=lambda x: x.stat().st_mtime)[-1]
+    latest_trial = Path("/storage/home/amr.hegazy/ray_results/sane_llm_scaled_multiarch/LLM_AE_trainable_12b15_00000_0_2026-01-19_10-06-00/")
     chkpts = sorted(list(latest_trial.glob("checkpoint_*")))
     if not chkpts:
         raise FileNotFoundError(f"No checkpoints found in {latest_trial}")
@@ -204,6 +204,26 @@ def linear_probe_r2(X, y, folds=5, seed=42):
         reg.fit(X[train_idx], y[train_idx])
         scores.append(reg.score(X[test_idx], y[test_idx]))
     return float(np.mean(scores)), float(np.std(scores))
+
+
+def _zscore(x):
+    x = x.astype(np.float32)
+    mean = np.nanmean(x)
+    std = np.nanstd(x)
+    if std == 0 or not np.isfinite(std):
+        return x - mean
+    return (x - mean) / std
+
+
+def residualize_embeddings(X, covariates):
+    """
+    Regress out covariates from embeddings.
+    covariates: np.ndarray [n_samples, n_covariates]
+    """
+    reg = Ridge(alpha=1.0, fit_intercept=True)
+    reg.fit(covariates, X)
+    X_hat = reg.predict(covariates)
+    return X - X_hat
 
 
 def encode_sequence_with_halo(model, tokens, positions, device, expected_dim, halo_size=0, chunk_size=4096):
@@ -336,7 +356,7 @@ def main():
     parser.add_argument("--experiment_dir", type=str, default="/storage/home/amr.hegazy/ray_results/sane_llm_scaled_multiarch")
     parser.add_argument("--dataset_path", type=str, default="data/scaled_llm_zoo/scaled_llm_dataset.pt")
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--holdout_only", action="store_true")
     parser.add_argument("--save_json", type=str, default="experiments/llm_extension/embedding_metrics.json")
@@ -464,6 +484,55 @@ def main():
         r2_h_mean, r2_h_std = linear_probe_r2(X[valid], hidden_sizes[valid], folds=5)
         results["hidden_size_r2_mean"] = r2_h_mean
         results["hidden_size_r2_std"] = r2_h_std
+
+    # Size-regressed metrics (hidden size only)
+    if np.isfinite(hidden_sizes).any():
+        valid = np.isfinite(hidden_sizes)
+        cov = _zscore(hidden_sizes[valid]).reshape(-1, 1)
+        X_res = residualize_embeddings(X[valid], cov)
+        acc_mean, acc_std = knn_architecture_accuracy(X_res, families[valid], k=5, folds=5)
+        results["knn_architecture_acc_mean_regress_hidden"] = acc_mean
+        results["knn_architecture_acc_std_regress_hidden"] = acc_std
+        if X_res.shape[0] > 5000:
+            idx = np.random.choice(X_res.shape[0], 5000, replace=False)
+            sil = silhouette_score(X_res[idx], families[valid][idx])
+        else:
+            sil = silhouette_score(X_res, families[valid])
+        results["silhouette_architecture_regress_hidden"] = float(sil)
+        results["n_samples_regress_hidden"] = int(X_res.shape[0])
+
+    # Depth-regressed metrics (layer depth only)
+    if np.isfinite(layer_ids).any():
+        valid = np.isfinite(layer_ids)
+        cov = _zscore(layer_ids[valid]).reshape(-1, 1)
+        X_res = residualize_embeddings(X[valid], cov)
+        acc_mean, acc_std = knn_architecture_accuracy(X_res, families[valid], k=5, folds=5)
+        results["knn_architecture_acc_mean_regress_depth"] = acc_mean
+        results["knn_architecture_acc_std_regress_depth"] = acc_std
+        if X_res.shape[0] > 5000:
+            idx = np.random.choice(X_res.shape[0], 5000, replace=False)
+            sil = silhouette_score(X_res[idx], families[valid][idx])
+        else:
+            sil = silhouette_score(X_res, families[valid])
+        results["silhouette_architecture_regress_depth"] = float(sil)
+        results["n_samples_regress_depth"] = int(X_res.shape[0])
+
+    # Regress out both size + depth when available
+    if np.isfinite(hidden_sizes).any() and np.isfinite(layer_ids).any():
+        valid = np.isfinite(hidden_sizes) & np.isfinite(layer_ids)
+        if np.any(valid):
+            cov = np.stack([_zscore(hidden_sizes[valid]), _zscore(layer_ids[valid])], axis=1)
+            X_res = residualize_embeddings(X[valid], cov)
+            acc_mean, acc_std = knn_architecture_accuracy(X_res, families[valid], k=5, folds=5)
+            results["knn_architecture_acc_mean_regress_hidden_depth"] = acc_mean
+            results["knn_architecture_acc_std_regress_hidden_depth"] = acc_std
+            if X_res.shape[0] > 5000:
+                idx = np.random.choice(X_res.shape[0], 5000, replace=False)
+                sil = silhouette_score(X_res[idx], families[valid][idx])
+            else:
+                sil = silhouette_score(X_res, families[valid])
+            results["silhouette_architecture_regress_hidden_depth"] = float(sil)
+            results["n_samples_regress_hidden_depth"] = int(X_res.shape[0])
 
     # Basic counts
     fam_counts = {f: int(np.sum(families == f)) for f in np.unique(families)}

@@ -18,34 +18,86 @@ from safetensors.torch import load_file
 # --- Configuration ---
 # Models to Train on (The "Known" World)
 TRAIN_ZOO = [
-    # Small Models (< 2B)
-    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-    "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
+    # Llama-3 Family
+    "meta-llama/Llama-3.1-8B",
+    "NousResearch/Hermes-3-Llama-3.1-8B",
+    "dphn/Dolphin3.0-Llama3.1-8B",
+    "meta-llama/Llama-3.2-1B",
+    "torchtorchkimtorch/Llama-3.2-Korean-GGACHI-1B-Instruct-v1",
+    "meta-llama/Llama-3.2-3B",
+    "ValiantLabs/Llama3.2-3B-Enigma",
+    "Orenguteng/Llama-3.1-8B-Lexi-Uncensored-V2",
+    
+    # Qwen1.5 Family
     "Qwen/Qwen1.5-0.5B",
+    "Qwen/Qwen1.5-7B",
+    "Qwen/Qwen1.5-14B",
+    "Qwen/Qwen1.5-0.5B-Chat",
+    "Qwen/Qwen1.5-7B-Chat",
+    "Qwen/Qwen1.5-14B-Chat",
+    
+    
+    # SmolLM Family
     "HuggingFaceTB/SmolLM-135M",
     "HuggingFaceTB/SmolLM-360M",
     "HuggingFaceTB/SmolLM-1.7B",
-    "stabilityai/stablelm-2-1_6b",
-    "microsoft/phi-1_5",
-    
-    # Medium Models (2B-10B)
     "HuggingFaceTB/SmolLM3-3B",
-    "openlm-research/open_llama_3b_v2",
-    "stabilityai/stablelm-base-alpha-7b",
-    "mistralai/Mistral-7B-v0.1",
-    "mistralai/Mistral-7B-v0.3",
-    "meta-llama/Llama-2-7b-hf",
+    "sawalni-ai/smollm-fw-darija",
+    "yd915/CosmoSpeak",
+    "vinayp27/smollm3-medical",
+    "ViswanthSai/SmolLM-3B-Code-Specialist-Combined",
+    "Daemontatox/SmolLM-EMC2",
+    
+
+    
+    # Yi Family
     "01-ai/Yi-6B",
     "01-ai/Yi-9B",
-    "mistralai/Mistral-Nemo-Base-2407",
-    "Qwen/Qwen1.5-7B",
-    "Qwen/Qwen2-7B",
-    
-    # Large Models (10B+)
-    "meta-llama/Llama-2-13b-hf",
-    "mistralai/Mistral-Small-24B-Base-2501",
-    "Qwen/Qwen1.5-14B",
     "01-ai/Yi-34B",
+    "NousResearch/Nous-Hermes-2-Yi-34B",
+    "01-ai/Yi-Coder-9B",
+
+    
+    # Mistral Family
+    "mistralai/Mistral-7B-v0.1",
+    "mistralai/Mistral-7B-v0.3",
+    "pucpr-br/Clinical-BR-Mistral-7B-v0.2",
+    "stewhsource/GovernmentGPT",
+    "openfoodfacts/spellcheck-mistral-7b",
+    "OpenLLM-Ro/RoMistral-7b-Instruct",
+    
+    # Llama-2 Family
+    "meta-llama/Llama-2-7b-hf",
+    "meta-llama/Llama-2-13b-hf",
+    "bineric/NorskGPT-Llama-7B-v0.1",
+    "VaisakhKrishna/Llama-2-Emotional-ChatBot",
+    "NousResearch/Nous-Hermes-Llama2-13b",
+    
+    
+    # Mistral Nemo Fa
+    "mistralai/Mistral-Nemo-Base-2407",
+    "DavidAU/Mistral-Nemo-Inst-2407-12B-Thinking-Uncensored-HERETIC-HI-Claude-Opus",
+    "SicariusSicariiStuff/Impish_Bloodmoon_12B",
+    "SicariusSicariiStuff/Angelic_Eclipse_12B",
+    "nbeerbower/mistral-nemo-wissenschaft-12B",
+    "krogoldAI/CelineGPT-12B-v0.1",
+    
+    # Qwen2 Family
+    "Qwen/Qwen2-7B",
+    "Qwen/Qwen2.5-Coder-7B-Instruct",
+    "Orion-zhen/Qwen2.5-7B-Instruct-Uncensored",
+    "Sao10K/32B-Qwen2.5-Kunou-v1",
+    "dphn/Dolphin3.0-Qwen2.5-0.5B",
+    "Snowflake/Qwen-2.5-coder-Arctic-ExCoT-32B"
+    
+    
+    # Mistral Small Family
+    "mistralai/Mistral-Small-24B-Base-2501",
+    "CrucibleLab/M3.2-24B-Loki-V2",
+    "TheDrummer/Rivermind-24B-v1"
+    
+    
+    
 ]
 
 # Models to Test on (The "Unseen" World - Different architectures & scales)

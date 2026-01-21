@@ -171,7 +171,9 @@ error.*
 latest-run
 /tune
 
-/experiments
+
 # checkpoints
 *.pt
 *.json
+paper/
+AGENTS.md

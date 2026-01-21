@@ -95,9 +95,12 @@ class AE_trainable(Trainable):
         else:
             target_util = 0.01
         # wait for gpu memory to be available
-        if target_util is not None:
+        # Skip GPU waiting if explicitly disabled or relax the check
+        skip_gpu_wait = config.get("training::skip_gpu_wait", False)
+        if target_util is not None and not skip_gpu_wait:
             logging.info("cuda detected: wait for gpu memory to be available")
-            wait_for_gpu(gpu_id=None, target_util=target_util, retry=20, delay_s=5)
+            # Increased retry attempts and more lenient target_util
+            wait_for_gpu(gpu_id=None, target_util=min(target_util, 0.5), retry=5, delay_s=3)
 
         # IF RESTORE FROM PREVIOUS CHECKPOINT: LOAD PREVIOUS CONFIG
         if config.get("model::checkpoint_path", None):
@@ -299,11 +302,31 @@ class AE_trainable(Trainable):
             # init dataloaders
             logging.info("Load Data")
             # load dataset from file
-            dataset = torch.load(self.config["dataset::dump"])
+            dataset_dump_path = Path(self.config["dataset::dump"])
+            dataset = torch.load(dataset_dump_path, weights_only=False)
 
             trainset = dataset["trainset"]
             testset = dataset["testset"]
             valset = dataset.get("valset", None)
+
+            # Fix relative paths in HFLlmTokenFileDataset if needed
+            # The dataset.pt file may contain objects with relative paths saved from preprocessing
+            # We need to fix these to be absolute paths based on where the dataset.pt file is located
+            for ds in [trainset, testset, valset]:
+                if ds is not None and hasattr(ds, 'root') and hasattr(ds, 'files'):
+                    # If the root is relative, make it absolute based on dataset_dump_path location
+                    if not ds.root.is_absolute():
+                        # The dataset.pt is in /path/to/data/dataset_llm_gemma3/dataset.pt
+                        # and ds.root is "data/dataset_llm_gemma3" (relative)
+                        # So we want dataset_dump_path.parent which is the same directory
+                        ds.root = dataset_dump_path.parent
+                    
+                    # Ensure files list uses absolute paths
+                    split_dir = ds.root / ds.split
+                    if ds.files and not ds.files[0].is_absolute():
+                        ds.files = sorted(
+                            [split_dir / f.name for f in ds.files]
+                        )
 
             # transfer trafo_dataset to datasets
             if trafo_dataset is not None:
